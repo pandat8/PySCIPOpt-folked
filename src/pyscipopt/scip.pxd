@@ -480,6 +480,14 @@ cdef extern from "scip/scip.h":
     # General SCIP Methods
     SCIP_RETCODE SCIPcreate(SCIP** scip)
     SCIP_RETCODE SCIPfree(SCIP** scip)
+    SCIP_RETCODE SCIPcopyParamSettings(SCIP* sourcescip, SCIP* targetscip)
+
+    SCIP_RETCODE SCIPhashmapCreate(SCIP_HASHMAP** 	hashmap,
+                                   BMS_BLKMEM* 	    blkmem,
+                                   int 	            mapsize)
+    void* SCIPhashmapGetImage(SCIP_HASHMAP*         hashmap,
+                              void*                 origin)
+
     SCIP_RETCODE SCIPcopy(SCIP*                 sourcescip,
                           SCIP*                 targetscip,
                           SCIP_HASHMAP*         varmap,
@@ -516,6 +524,7 @@ cdef extern from "scip/scip.h":
     void SCIPprintVersion(SCIP* scip, FILE* outfile)
     SCIP_Real SCIPgetTotalTime(SCIP* scip)
     SCIP_Real SCIPgetSolvingTime(SCIP* scip)
+    SCIP_Real SCIPgetFirstLPTime(SCIP* scip)
     SCIP_Real SCIPgetReadingTime(SCIP* scip)
     SCIP_Real SCIPgetPresolvingTime(SCIP* scip)
     SCIP_STAGE SCIPgetStage(SCIP* scip)
@@ -604,6 +613,7 @@ cdef extern from "scip/scip.h":
     SCIP_RETCODE SCIPaddVar(SCIP* scip, SCIP_VAR* var)
     SCIP_RETCODE SCIPdelVar(SCIP* scip, SCIP_VAR* var, SCIP_Bool* deleted)
     SCIP_RETCODE SCIPaddCons(SCIP* scip, SCIP_CONS* cons)
+    SCIP_RETCODE SCIPreleaseCons(SCIP* scip, SCIP_CONS* cons)
     SCIP_RETCODE SCIPdelCons(SCIP* scip, SCIP_CONS* cons)
     SCIP_RETCODE SCIPsetObjsense(SCIP* scip, SCIP_OBJSENSE objsense)
     SCIP_OBJSENSE SCIPgetObjsense(SCIP* scip)
@@ -710,6 +720,7 @@ cdef extern from "scip/scip.h":
     SCIP_VAR** SCIPgetOrigVars(SCIP* scip)
     const char* SCIPvarGetName(SCIP_VAR* var)
     int SCIPvarGetIndex(SCIP_VAR* var)
+    int SCIPvarGetProbindex(SCIP_VAR* var)
     int SCIPgetNVars(SCIP* scip)
     int SCIPgetNOrigVars(SCIP* scip)
     int SCIPgetNIntVars(SCIP* scip)
@@ -797,6 +808,8 @@ cdef extern from "scip/scip.h":
     SCIP_Real SCIPgetSolOrigObj(SCIP* scip, SCIP_SOL* sol)
     SCIP_Real SCIPgetSolTransObj(SCIP* scip, SCIP_SOL* sol)
     SCIP_RETCODE SCIPcreateSol(SCIP* scip, SCIP_SOL** sol, SCIP_HEUR* heur)
+    SCIP_RETCODE SCIPcreateLPSol(SCIP* scip, SCIP_SOL** sol, SCIP_HEUR* heur)
+    SCIP_RETCODE SCIPcreateRelaxSol(SCIP* scip, SCIP_SOL** sol, SCIP_HEUR* heur)
     SCIP_RETCODE SCIPcreatePartialSol(SCIP* scip, SCIP_SOL** sol,SCIP_HEUR* heur)
     SCIP_RETCODE SCIPsetSolVal(SCIP* scip, SCIP_SOL* sol, SCIP_VAR* var, SCIP_Real val)
     SCIP_RETCODE SCIPtrySolFree(SCIP* scip, SCIP_SOL** sol, SCIP_Bool printreason, SCIP_Bool completely, SCIP_Bool checkbounds, SCIP_Bool checkintegrality, SCIP_Bool checklprows, SCIP_Bool* stored)
@@ -823,6 +836,7 @@ cdef extern from "scip/scip.h":
     SCIP_RETCODE SCIPcreateEmptyRowSepa(SCIP* scip, SCIP_ROW** row, SCIP_SEPA* sepa, const char* name, SCIP_Real lhs, SCIP_Real rhs, SCIP_Bool local, SCIP_Bool modifiable, SCIP_Bool removable)
     SCIP_RETCODE SCIPcreateEmptyRowUnspec(SCIP* scip, SCIP_ROW** row, const char* name, SCIP_Real lhs, SCIP_Real rhs, SCIP_Bool local, SCIP_Bool modifiable, SCIP_Bool removable)
     SCIP_Real SCIPgetRowActivity(SCIP* scip, SCIP_ROW* row)
+    SCIP_Real SCIPgetRowSolActivity(SCIP* scip, SCIP_ROW* row, SCIP_SOL* sol)
     SCIP_Real SCIPgetRowLPActivity(SCIP* scip, SCIP_ROW* row)
     SCIP_RETCODE SCIPreleaseRow(SCIP* scip, SCIP_ROW** row)
     SCIP_RETCODE SCIPcacheRowExtensions(SCIP* scip, SCIP_ROW* row)
@@ -1186,6 +1200,8 @@ cdef extern from "scip/scip.h":
     # Numerical Methods
     SCIP_Real SCIPinfinity(SCIP* scip)
     SCIP_Real SCIPfrac(SCIP* scip, SCIP_Real val)
+    SCIP_Real SCIPfloor(SCIP* scip, SCIP_Real val)
+    SCIP_Real SCIPceil(SCIP* scip, SCIP_Real val)
     SCIP_Real SCIPfeasFrac(SCIP* scip, SCIP_Real val)
     SCIP_Bool SCIPisZero(SCIP* scip, SCIP_Real val)
     SCIP_Bool SCIPisFeasIntegral(SCIP* scip, SCIP_Real val)
@@ -1198,6 +1214,8 @@ cdef extern from "scip/scip.h":
     SCIP_Bool SCIPisGT(SCIP* scip, SCIP_Real val1, SCIP_Real val2)
     SCIP_Bool SCIPisEQ(SCIP *scip, SCIP_Real val1, SCIP_Real val2)
     SCIP_Bool SCIPisFeasEQ(SCIP *scip, SCIP_Real val1, SCIP_Real val2)
+    SCIP_Bool SCIPisFeasLT(SCIP *scip, SCIP_Real val1, SCIP_Real val2)
+    SCIP_Bool SCIPisFeasGT(SCIP *scip, SCIP_Real val1, SCIP_Real val2)
     SCIP_Bool SCIPisHugeValue(SCIP *scip, SCIP_Real val)
     SCIP_Bool SCIPisPositive(SCIP *scip, SCIP_Real val)
     SCIP_Bool SCIPisNegative(SCIP *scip, SCIP_Real val)
@@ -1299,6 +1317,16 @@ cdef extern from "scip/cons_linear.h":
                                       SCIP_Bool dynamic,
                                       SCIP_Bool removable,
                                       SCIP_Bool stickingatnode)
+
+    SCIP_RETCODE SCIPcreateConsBasicLinear(SCIP* scip,
+                                           SCIP_CONS** cons,
+                                           const char* name,
+                                           int nvars,
+                                           SCIP_VAR** vars,
+                                           SCIP_Real* vals,
+                                           SCIP_Real lhs,
+                                           SCIP_Real rhs)
+
     SCIP_RETCODE SCIPaddCoefLinear(SCIP* scip,
                                    SCIP_CONS* cons,
                                    SCIP_VAR* var,
@@ -1644,6 +1672,8 @@ cdef extern from "scip/pub_lp.h":
     int SCIProwGetAge(SCIP_ROW* row)
     SCIP_Bool SCIProwIsRemovable(SCIP_ROW* row)
     SCIP_ROWORIGINTYPE SCIProwGetOrigintype(SCIP_ROW* row)
+    const char* SCIProwGetName(SCIP_ROW* row)
+
 
     # Column Methods
     int SCIPcolGetLPPos(SCIP_COL* col)

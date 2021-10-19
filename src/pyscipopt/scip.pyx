@@ -449,6 +449,10 @@ cdef class Row:
         cdef SCIP_Real* vals = SCIProwGetVals(self.scip_row)
         return [vals[i] for i in range(self.getNNonz())]
 
+    def getName(self):
+        """returns the name of the row"""
+        return bytes(SCIProwGetName(self.scip_row)).decode('utf-8')
+
     def __hash__(self):
         return hash(<size_t>self.scip_row)
 
@@ -788,6 +792,10 @@ cdef class Variable(Expr):
         """Retrieve the unique index of the variable."""
         return SCIPvarGetIndex(self.scip_var)
 
+    def getProbindex(self):
+        """Retireve the position of variable in problem, or -1 if variable is not active"""
+        return SCIPvarGetProbindex(self.scip_var)
+
     def getCol(self):
         """Retrieve column of COLUMN variable"""
         cdef SCIP_COL* scip_col
@@ -1036,6 +1044,11 @@ cdef class Model:
         """Includes all default plug-ins into SCIP"""
         PY_SCIP_CALL(SCIPincludeDefaultPlugins(self._scip))
 
+    def copyParamSettings(self, Model sourceModel):
+        """copies parameter settings from sourcescip to targetscip
+        """
+        PY_SCIP_CALL( SCIPcopyParamSettings(sourceModel._scip, self._scip))
+
     def createProbBasic(self, problemName='model'):
         """Create new problem instance with given name
 
@@ -1044,6 +1057,37 @@ cdef class Model:
         """
         n = str_conversion(problemName)
         PY_SCIP_CALL(SCIPcreateProbBasic(self._scip, n))
+
+    def createCopy(self, problemName='modelCopy', origcopy=False, globalcopy=True):
+        """Create a copy of the original scip model, return the copied model and variable array"""
+        cdef SCIP_HASHMAP* _varmapfw
+        cdef SCIP_Bool _success
+        cdef SCIP_VAR* _subvar
+        subvars = []
+
+        if origcopy:
+            _vars = SCIPgetOrigVars(self._scip)
+            _nvars = SCIPgetNOrigVars(self._scip)
+        else:
+            _vars = SCIPgetVars(self._scip)
+            _nvars = SCIPgetNVars(self._scip)
+
+        _name = str_conversion(problemName)
+        scipCopy = Model(createscip=False)
+        PY_SCIP_CALL(SCIPcreate(&scipCopy._scip))
+
+        PY_SCIP_CALL(SCIPhashmapCreate(&_varmapfw, SCIPblkmem(scipCopy._scip), _nvars))
+        if origcopy:
+            PY_SCIP_CALL(SCIPcopyOrig(self._scip, scipCopy._scip, _varmapfw, NULL, _name, False, False, True, &_success))
+        else:
+            PY_SCIP_CALL(SCIPcopy(self._scip, scipCopy._scip, _varmapfw, NULL, _name, globalcopy, False, False, True, &_success))
+
+        for i in range(_nvars):
+            _subvar = <SCIP_VAR*> SCIPhashmapGetImage(_varmapfw, _vars[i])
+            subvar = Variable.create(_subvar)
+            subvars.append(subvar)
+        return scipCopy, subvars, _success
+
 
     def freeProb(self):
         """Frees problem and solution process data"""
@@ -1072,6 +1116,13 @@ cdef class Model:
     def getSolvingTime(self):
         """Retrieve the current solving time in seconds"""
         return SCIPgetSolvingTime(self._scip)
+
+    def getFirstLpTime(self):
+        """
+        Gets the time need to solve the first LP in the root node
+        :return:
+        """
+        return SCIPgetFirstLPTime(self._scip)
 
     def getReadingTime(self):
         """Retrieve the current reading time in seconds"""
@@ -1145,6 +1196,14 @@ cdef class Model:
         """returns fractional part of value, i.e. x - floor(x) in epsilon tolerance: x - floor(x+eps)"""
         return SCIPfrac(self._scip, value)
 
+    def floor(self, value):
+        """rounds value + epsilon down to the next integer"""
+        return SCIPfloor(self._scip, value)
+
+    def ceil(self, value):
+        """round value - epsilon up to the next integer"""
+        return SCIPceil(self._scip, value)
+
     def isZero(self, value):
         """returns whether abs(value) < eps"""
         return SCIPisZero(self._scip, value)
@@ -1172,6 +1231,14 @@ cdef class Model:
     def isFeasEQ(self, val1, val2):
         """checks, if relative difference of values is in range of feasibility tolerance"""
         return SCIPisFeasEQ(self._scip, val1, val2)
+
+    def isFeasLT(self, val1, val2):
+        """checks, if relative difference val1 and val2 is lower than feasibility tolerance"""
+        return SCIPisFeasLT(self._scip, val1, val2)
+
+    def isFeasGT(self, val1, val2):
+        """checks, if relative difference val1 and val2 is greater than feasibility tolerance"""
+        return SCIPisFeasGT(self._scip, val1, val2)
 
     def isLE(self, val1, val2):
         """returns whether val1 <= val2 + eps"""
@@ -1456,6 +1523,13 @@ cdef class Model:
         SCIPvarSetData(scip_var, <SCIP_VARDATA*>pyVar)
         PY_SCIP_CALL(SCIPreleaseVar(self._scip, &scip_var))
         return pyVar
+
+    def releaseVar(self, Variable var):
+        """decreases usage counter of variable, if the usage pointer reaches zero the variable gets freed"""
+        cdef SCIP_VAR* scip_var
+        scip_var = var.scip_var
+
+        PY_SCIP_CALL(SCIPreleaseVar(self._scip, &(scip_var)))
 
     def getTransformedVar(self, Variable var):
         """Retrieve the transformed variable.
@@ -1885,6 +1959,12 @@ cdef class Model:
         """returns the activity of a row in the last LP or pseudo solution"""
         return SCIPgetRowActivity(self._scip, row.scip_row)
 
+    def getRowSolActivity(self, Row row, Solution sol):
+        """returns the activity of a row in the specified solution"""
+        cdef SCIP_SOL* solptr
+        solptr = <SCIP_SOL*>sol.sol if not sol is None else NULL
+        return SCIPgetRowSolActivity(self._scip, row.scip_row, solptr)
+
     def getRowLPActivity(self, Row row):
         """returns the activity of a row in the last LP solution"""
         return SCIPgetRowLPActivity(self._scip, row.scip_row)
@@ -2008,6 +2088,25 @@ cdef class Model:
             return self._addGenNonlinearCons(cons, **kwargs)
         else:
             return self._addNonlinearCons(cons, **kwargs)
+
+    def createConsBasicLinear(self, name, nvars, vars, vals, lhs, rhs):
+        """creates and captures a linear constraint in its most basic version,
+        i. e., all constraint flags are set to their basic value as explained for the method SCIPcreateConsLinear();
+        all flags can be set via SCIPsetConsFLAGNAME-methods in scip.h"""
+        c_name = str_conversion(name)
+
+        _vars = <SCIP_VAR**> malloc(len(vars) * sizeof(SCIP_VAR*))
+        _vals = <SCIP_Real*> malloc(nvars * sizeof(SCIP_Real))
+
+        for idx, var in enumerate(vars):
+            _vars[idx] = (<Variable>var).scip_var
+        for  idx, val in enumerate(vals):
+            _vals[idx] = <SCIP_Real>val
+
+        constraint = Constraint()
+        PY_SCIP_CALL(SCIPcreateConsBasicLinear(self._scip, &(constraint.scip_cons), c_name, nvars, _vars, _vals, lhs, rhs))
+        return constraint
+
 
     def _addLinCons(self, ExprCons lincons, **kwargs):
         assert isinstance(lincons, ExprCons), "given constraint is not ExprCons but %s" % lincons.__class__.__name__
@@ -2577,6 +2676,15 @@ cdef class Model:
         """
         PY_SCIP_CALL(SCIPaddCons(self._scip, cons.scip_cons))
         Py_INCREF(cons)
+
+    def releasePyCons(self, Constraint cons):
+        """
+        Release a coustomly created cons.
+        :param cons:
+        :return:
+        """
+        PY_SCIP_CALL(SCIPreleaseCons(self._scip, &cons.scip_cons))
+        Py_DECREF(cons)
 
     def addVarSOS1(self, Constraint cons, Variable var, weight):
         """Add variable to SOS1 constraint.
@@ -3946,6 +4054,42 @@ cdef class Model:
         else:
             _heur = NULL
         PY_SCIP_CALL(SCIPcreateSol(self._scip, &_sol, _heur))
+        solution = Solution.create(self._scip, _sol)
+        return solution
+
+    def createLPSol(self, Heur heur = None):
+        """Create a new primal LP solution, initialized to current LP solution.
+
+        :param Heur heur: heuristic that found the solution (Default value = None)
+
+        """
+        cdef SCIP_HEUR* _heur
+        cdef SCIP_SOL* _sol
+
+        if isinstance(heur, Heur):
+            n = str_conversion(heur.name)
+            _heur = SCIPfindHeur(self._scip, n)
+        else:
+            _heur = NULL
+        PY_SCIP_CALL(SCIPcreateLPSol(self._scip, &_sol, _heur))
+        solution = Solution.create(self._scip, _sol)
+        return solution
+
+    def createRelaxSol(self, Heur heur = None):
+        """Create a new primal LP relaxation solution, initialized to current LP relaxation solution.
+
+        :param Heur heur: heuristic that found the solution (Default value = None)
+
+        """
+        cdef SCIP_HEUR* _heur
+        cdef SCIP_SOL* _sol
+
+        if isinstance(heur, Heur):
+            n = str_conversion(heur.name)
+            _heur = SCIPfindHeur(self._scip, n)
+        else:
+            _heur = NULL
+        PY_SCIP_CALL(SCIPcreateRelaxSol(self._scip, &_sol, _heur))
         solution = Solution.create(self._scip, _sol)
         return solution
 
