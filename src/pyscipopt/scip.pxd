@@ -507,6 +507,23 @@ cdef extern from "scip/scip.h":
                               SCIP_Bool             threadsafe,
                               SCIP_Bool             passmessagehdlr,
                               SCIP_Bool*            valid)
+
+
+
+    SCIP_RETCODE SCIPcopyLargeNeighborhoodSearch(
+            	SCIP * 	        sourcescip,
+                SCIP * 	        subscip,
+                SCIP_HASHMAP * 	varmap,
+                const char * 	suffix,
+                SCIP_VAR ** 	fixedvars,
+                SCIP_Real * 	fixedvals,
+                int 	        nfixedvars,
+                SCIP_Bool 	    uselprows,
+                SCIP_Bool 	    copycuts,
+                SCIP_Bool * 	success,
+                SCIP_Bool * 	valid
+    )
+
     SCIP_RETCODE SCIPmessagehdlrCreate(SCIP_MESSAGEHDLR **messagehdlr,
                                        SCIP_Bool bufferedoutput,
                                        const char *filename,
@@ -808,6 +825,16 @@ cdef extern from "scip/scip.h":
     SCIP_Real SCIPgetSolOrigObj(SCIP* scip, SCIP_SOL* sol)
     SCIP_Real SCIPgetSolTransObj(SCIP* scip, SCIP_SOL* sol)
     SCIP_RETCODE SCIPcreateSol(SCIP* scip, SCIP_SOL** sol, SCIP_HEUR* heur)
+
+    SCIP_RETCODE createNewSol(SCIP * 	    scip,
+                              SCIP * 	    subscip,
+                              SCIP_VAR ** 	subvars,
+                              SCIP_HEUR * 	heur,
+                              SCIP_SOL * 	subsol,
+                              SCIP_Bool * 	success
+                                )
+
+
     SCIP_RETCODE SCIPcreateLPSol(SCIP* scip, SCIP_SOL** sol, SCIP_HEUR* heur)
     SCIP_RETCODE SCIPcreateRelaxSol(SCIP* scip, SCIP_SOL** sol, SCIP_HEUR* heur)
     SCIP_RETCODE SCIPcreatePartialSol(SCIP* scip, SCIP_SOL** sol,SCIP_HEUR* heur)
