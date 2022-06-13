@@ -1161,7 +1161,7 @@ cdef class Model:
 
     def getReadingTime(self):
         """Retrieve the current reading time in seconds"""
-        return SCIPgetReadingTime(self._scip)
+        return SCIPgetReadingfTime(self._scip)
 
     def getPresolvingTime(self):
         """Retrieve the curernt presolving time in seconds"""
