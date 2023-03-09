@@ -1088,6 +1088,39 @@ cdef class Model:
             subvars.append(subvar)
         return scipCopy, subvars, _success
 
+    def createCopyMipLns(self, fixed_vars, fixed_vals, n_fixed_vars, uselprows=False, copycuts=True):
+        """Create a copy of the original scip model for doing LNS search, return the copied model and variable array"""
+
+        cdef SCIP_HASHMAP* _varmapfw
+        cdef SCIP_Bool _success
+        cdef SCIP_Bool _valid
+        cdef SCIP_VAR* _subvar
+        subvars = []
+
+        _vars = SCIPgetVars(self._scip)
+        _nvars = SCIPgetNVars(self._scip)
+
+        scipCopy = Model(createscip=False)
+        PY_SCIP_CALL(SCIPcreate(&scipCopy._scip))
+
+        PY_SCIP_CALL(SCIPhashmapCreate(&_varmapfw, SCIPblkmem(scipCopy._scip), _nvars))
+
+
+        _fixedvars = <SCIP_VAR**> malloc(len(fixed_vars) * sizeof(SCIP_VAR*))
+        _fixedvals = <SCIP_Real*> malloc(len(fixed_vals) * sizeof(SCIP_Real))
+
+        for idx, var in enumerate(fixed_vars):
+            _fixedvars[idx] = (<Variable>var).scip_var
+        for  idx, val in enumerate(fixed_vals):
+            _fixedvals[idx] = <SCIP_Real>val
+
+        PY_SCIP_CALL(SCIPcopyLargeNeighborhoodSearch(self._scip, scipCopy._scip, _varmapfw, "", _fixedvars, _fixedvals, n_fixed_vars, uselprows, copycuts, &_success, &_valid))
+
+        for i in range(_nvars):
+            _subvar = <SCIP_VAR*> SCIPhashmapGetImage(_varmapfw, _vars[i])
+            subvar = Variable.create(_subvar)
+            subvars.append(subvar)
+        return scipCopy, subvars, _success
 
     def freeProb(self):
         """Frees problem and solution process data"""
