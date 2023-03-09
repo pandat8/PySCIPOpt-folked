@@ -507,6 +507,21 @@ cdef extern from "scip/scip.h":
                               SCIP_Bool             threadsafe,
                               SCIP_Bool             passmessagehdlr,
                               SCIP_Bool*            valid)
+
+    SCIP_RETCODE SCIPcopyLargeNeighborhoodSearch(
+            	SCIP * 	        sourcescip,
+                SCIP * 	        subscip,
+                SCIP_HASHMAP * 	varmap,
+                const char * 	suffix,
+                SCIP_VAR ** 	fixedvars,
+                SCIP_Real * 	fixedvals,
+                int 	        nfixedvars,
+                SCIP_Bool 	    uselprows,
+                SCIP_Bool 	    copycuts,
+                SCIP_Bool * 	success,
+                SCIP_Bool * 	valid
+    )
+
     SCIP_RETCODE SCIPmessagehdlrCreate(SCIP_MESSAGEHDLR **messagehdlr,
                                        SCIP_Bool bufferedoutput,
                                        const char *filename,
